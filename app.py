@@ -307,13 +307,33 @@ def metrics(df: pd.DataFrame) -> dict:
     }
 
 
-def performance_curve(df: pd.DataFrame) -> pd.DataFrame:
+def performance_curve(df):
     x = enrich_trades(df)
-    closed = x[x["is_closed"]].dropna(subset=["exit_date"]).sort_values("exit_date")
+
+    # Handle completely empty dataframes safely
+    if x.empty:
+        return pd.DataFrame(columns=["Date", "Cumulative P&L"])
+
+    # Make sure required columns exist
+    required = ["is_closed", "exit_date", "pnl"]
+    for col in required:
+        if col not in x.columns:
+            return pd.DataFrame(columns=["Date", "Cumulative P&L"])
+
+    closed = (
+        x[x["is_closed"]]
+        .dropna(subset=["exit_date"])
+        .sort_values("exit_date")
+    )
+
     if closed.empty:
-        return pd.DataFrame(columns=["Date","Cumulative P&L"])
+        return pd.DataFrame(columns=["Date", "Cumulative P&L"])
+
     closed["Cumulative P&L"] = closed["pnl"].cumsum()
-    return closed[["exit_date","Cumulative P&L"]].rename(columns={"exit_date":"Date"})
+
+    return closed[["exit_date", "Cumulative P&L"]].rename(
+        columns={"exit_date": "Date"}
+    )
 
 
 def sherlock_review(row: pd.Series) -> tuple[str, list[str]]:
