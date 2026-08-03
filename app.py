@@ -107,10 +107,29 @@ def metrics(df):
     return {"closed":len(closed),"pnl":closed.pnl.sum(),"win":(closed.pnl>0).mean(),"avg":closed.return_pct.mean(),"pf":wins/losses if losses>0 else np.nan,"adh":x.adherence_score.mean()}
 
 def curve(df):
-    x=enrich(df); c=x[x.get("is_closed",False)].dropna(subset=["exit_date"]).sort_values("exit_date")
-    if c.empty:return pd.DataFrame(columns=["Date","Cumulative P&L"])
-    c["Cumulative P&L"]=c.pnl.cumsum()
-    return c[["exit_date","Cumulative P&L"]].rename(columns={"exit_date":"Date"})
+    if df is None or df.empty:
+        return pd.DataFrame(columns=["Date", "Cumulative P&L"])
+
+    x = enrich(df)
+
+    if x.empty or "is_closed" not in x.columns:
+        return pd.DataFrame(columns=["Date", "Cumulative P&L"])
+
+    closed = (
+        x[x["is_closed"].fillna(False)]
+        .dropna(subset=["exit_date"])
+        .sort_values("exit_date")
+        .copy()
+    )
+
+    if closed.empty:
+        return pd.DataFrame(columns=["Date", "Cumulative P&L"])
+
+    closed["Cumulative P&L"] = closed["pnl"].cumsum()
+
+    return closed[
+        ["exit_date", "Cumulative P&L"]
+    ].rename(columns={"exit_date": "Date"})
 
 if st.session_state.auth is None:
     st.title("Londoño Trading Platform")
