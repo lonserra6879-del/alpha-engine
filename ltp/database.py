@@ -9,7 +9,8 @@ TRADE_COLUMNS = [
     "confidence","status","archived","close_reason","lesson",
     "imported_position","source_broker","entry_rsi14","entry_ema20",
     "entry_ema50","entry_volume_ratio","reconstruction_status",
-    "reconstructed_at","created_at"
+    "reconstructed_at","case_snapshot","evidence_score","case_verdict",
+    "case_created_at","created_at"
 ]
 
 def load_trades(user_id: str) -> pd.DataFrame:
