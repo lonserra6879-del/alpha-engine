@@ -1,128 +1,91 @@
-# v0.6 integration instructions:
-#
-# Add these imports near the top of app.py:
-#
-#   import json
-#   from ltp.market_data import reconstruct_case
-#   from ltp.sherlock import snapshot_to_json
-#
-# In the payload used to save a new/open/imported trade, add:
-#
-#   "case_snapshot": None,
-#   "evidence_score": None,
-#   "case_verdict": None,
-#   "case_created_at": None,
-#
-# Replace the existing Sherlock page block with the code below.
-#
-elif page == "Sherlock":
-    st.title("🕵️ Sherlock Case Files")
-    st.caption("I don't guess. I investigate.")
+# V0.7 APP.PY CHANGES
 
-    x = enrich(trades())
+# 1. Replace your market_data import with:
+from ltp.market_data import reconstruct_case, quote_snapshot, clear_quote_cache
+from ltp.portfolio import build_live_portfolio, portfolio_totals
 
-    if x.empty:
-        st.info("No trades are available for investigation.")
+# 2. Replace the entire Portfolio page block with:
+
+elif page == "Portfolio":
+    st.title("Live Portfolio")
+    st.caption("Delayed market data from Yahoo Finance; not an execution quote.")
+
+    enriched = enrich(trades())
+    open_df = (
+        enriched.loc[
+            enriched["status"].astype(str).str.lower().eq("open")
+            & ~enriched["archived"].fillna(False).astype(bool)
+        ].copy()
+        if not enriched.empty
+        else enriched
+    )
+
+    if open_df.empty:
+        st.info("No open positions.")
     else:
-        for _, row in x.iterrows():
+        if st.button("Refresh quotes"):
+            clear_quote_cache()
+            st.rerun()
+
+        tickers = tuple(sorted(open_df["ticker"].astype(str).str.upper().unique()))
+        with st.spinner("Loading prices..."):
+            quotes = quote_snapshot(tickers)
+
+        portfolio = build_live_portfolio(open_df, quotes)
+        totals = portfolio_totals(portfolio)
+
+        a,b,c,d = st.columns(4)
+        a.metric("Cost basis", f"${totals['cost_basis']:,.2f}")
+        b.metric("Market value", f"${totals['market_value']:,.2f}")
+        c.metric(
+            "Unrealized P&L",
+            f"${totals['unrealized']:,.2f}",
+            delta=None if pd.isna(totals["return_pct"]) else f"{totals['return_pct']:+.2%}",
+        )
+        d.metric("Open positions", len(portfolio))
+
+        st.dataframe(
+            portfolio,
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "Entry": st.column_config.NumberColumn(format="$%.2f"),
+                "Current": st.column_config.NumberColumn(format="$%.2f"),
+                "Cost basis": st.column_config.NumberColumn(format="$%.2f"),
+                "Market value": st.column_config.NumberColumn(format="$%.2f"),
+                "Unrealized P&L": st.column_config.NumberColumn(format="$%.2f"),
+                "Return": st.column_config.NumberColumn(format="percent"),
+                "Stop": st.column_config.NumberColumn(format="$%.2f"),
+                "Target": st.column_config.NumberColumn(format="$%.2f"),
+                "Distance to stop": st.column_config.NumberColumn(format="percent"),
+                "Distance to target": st.column_config.NumberColumn(format="percent"),
+                "Remaining R/R": st.column_config.NumberColumn(format="%.2f"),
+            },
+        )
+
+        allocation = portfolio.dropna(subset=["Market value"])
+        if not allocation.empty:
+            st.plotly_chart(
+                px.pie(allocation, names="Ticker", values="Market value",
+                       title="Open-position allocation"),
+                use_container_width=True,
+            )
+
+        st.subheader("Position details")
+        for _, p in portfolio.iterrows():
             with st.container(border=True):
-                status_label = "Open Case" if str(row["status"]).lower() == "open" else "Closed Case"
-                st.subheader(f"{row['ticker']} · {status_label}")
-                st.caption(
-                    f"Entry {pd.to_datetime(row['entry_date']).date()} · "
-                    f"${float(row['entry_price']):,.2f} · {row['strategy']}"
+                st.subheader(p["Ticker"])
+                c1,c2,c3,c4 = st.columns(4)
+                c1.metric("Entry", f"${p['Entry']:,.2f}")
+                c2.metric("Current", "Unavailable" if pd.isna(p["Current"]) else f"${p['Current']:,.2f}")
+                c3.metric(
+                    "Unrealized P&L",
+                    "Unavailable" if pd.isna(p["Unrealized P&L"]) else f"${p['Unrealized P&L']:,.2f}",
+                    delta=None if pd.isna(p["Return"]) else f"{p['Return']:+.2%}",
                 )
+                c4.metric("Days held", int(p["Days held"]))
 
-                existing_snapshot = row.get("case_snapshot")
-                if isinstance(existing_snapshot, str) and existing_snapshot:
-                    try:
-                        snapshot = json.loads(existing_snapshot)
-                    except Exception:
-                        snapshot = None
-                elif isinstance(existing_snapshot, dict):
-                    snapshot = existing_snapshot
-                else:
-                    snapshot = None
-
-                if snapshot is None:
-                    if st.button(
-                        "Investigate entry",
-                        key=f"investigate_{row['id']}",
-                        use_container_width=True,
-                    ):
-                        with st.spinner("Sherlock is reconstructing the evidence..."):
-                            snapshot = reconstruct_case(
-                                str(row["ticker"]),
-                                pd.to_datetime(row["entry_date"]).date(),
-                            )
-
-                        if snapshot.get("status") == "Complete":
-                            update_trade(
-                                str(row["id"]),
-                                user.user_id,
-                                {
-                                    "case_snapshot": snapshot_to_json(snapshot),
-                                    "evidence_score": snapshot.get("evidence_score"),
-                                    "case_verdict": snapshot.get("verdict"),
-                                    "case_created_at": datetime.utcnow().isoformat(),
-                                    "entry_rsi14": snapshot.get("rsi14"),
-                                    "entry_ema20": snapshot.get("ema20"),
-                                    "entry_ema50": snapshot.get("ema50"),
-                                    "entry_volume_ratio": snapshot.get("relative_volume"),
-                                    "reconstruction_status": "Complete",
-                                    "reconstructed_at": datetime.utcnow().isoformat(),
-                                },
-                            )
-                            st.success("Case file created and saved.")
-                            st.rerun()
-                        else:
-                            st.error(snapshot.get("message", "Investigation failed."))
-                else:
-                    c1, c2, c3, c4 = st.columns(4)
-                    c1.metric("Evidence Score", snapshot.get("evidence_score", "—"))
-                    c2.metric(
-                        "RSI 14",
-                        "—" if snapshot.get("rsi14") is None
-                        else f"{snapshot['rsi14']:.1f}",
-                    )
-                    c3.metric(
-                        "Relative Volume",
-                        "—" if snapshot.get("relative_volume") is None
-                        else f"{snapshot['relative_volume']:.2f}×",
-                    )
-                    c4.metric(
-                        "5-Day Return",
-                        "—" if snapshot.get("week_return") is None
-                        else f"{snapshot['week_return']:+.1%}",
-                    )
-
-                    st.markdown(f"### Verdict: {snapshot.get('verdict', 'Unknown')}")
-                    st.caption(
-                        f"Market date used: {snapshot.get('market_date_used', 'Unknown')}"
-                    )
-
-                    indicators = pd.DataFrame(
-                        [
-                            {"Indicator": "Entry close", "Value": snapshot.get("close")},
-                            {"Indicator": "EMA 9", "Value": snapshot.get("ema9")},
-                            {"Indicator": "EMA 20", "Value": snapshot.get("ema20")},
-                            {"Indicator": "EMA 50", "Value": snapshot.get("ema50")},
-                            {"Indicator": "EMA 200", "Value": snapshot.get("ema200")},
-                            {"Indicator": "MACD", "Value": snapshot.get("macd")},
-                            {"Indicator": "MACD signal", "Value": snapshot.get("macd_signal")},
-                            {"Indicator": "MACD histogram", "Value": snapshot.get("macd_histogram")},
-                            {"Indicator": "ATR 14", "Value": snapshot.get("atr14")},
-                            {"Indicator": "Gap %", "Value": snapshot.get("gap_pct")},
-                        ]
-                    )
-                    st.dataframe(indicators, hide_index=True, use_container_width=True)
-
-                    st.markdown("#### Evidence collected")
-                    for item in snapshot.get("evidence", []):
-                        st.write(f"• {item}")
-
-                    st.info(snapshot.get("message", ""))
-                    st.warning(
-                        "This is reconstructed daily evidence. It is not a record "
-                        "of the exact intraday indicators visible when the trade was entered."
-                    )
+                r1,r2,r3 = st.columns(3)
+                r1.metric("Distance to stop", "Not set" if pd.isna(p["Distance to stop"]) else f"{p['Distance to stop']:.2%}")
+                r2.metric("Distance to target", "Not set" if pd.isna(p["Distance to target"]) else f"{p['Distance to target']:.2%}")
+                r3.metric("Remaining reward/risk", "Not available" if pd.isna(p["Remaining R/R"]) else f"{p['Remaining R/R']:.2f}:1")
