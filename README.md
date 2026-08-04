@@ -1,26 +1,32 @@
-# Londoño Trading Platform v0.5
+# Londoño Trading Platform v0.6 — Sherlock Case Files
 
-This release replaces Demo Mode with permanent Supabase authentication and storage.
+## New
 
-## Upload to GitHub
+- Automatic historical entry reconstruction
+- EMA 9, EMA 20, EMA 50, and EMA 200
+- RSI 14
+- MACD, signal, and histogram
+- ATR 14
+- Relative volume
+- Entry-day gap
+- Five-session momentum
+- Evidence Score from 0 to 100
+- Sherlock verdict and evidence list
+- Permanent JSON case snapshot saved to Supabase
+- Weekend and holiday dates use the last available market session
 
-Upload all files and folders from this package, including the complete `ltp` folder.
+## Files
 
-Required:
-- `app.py`
-- `requirements.txt`
-- `supabase_schema.sql`
-- `README.md`
-- `ltp/`
-- `.streamlit/secrets.toml.example`
+Upload or replace:
 
-Keep the real keys only in Streamlit Cloud Secrets.
+- `ltp/market_data.py`
+- `ltp/sherlock.py`
+- `ltp/database.py`
 
-## Test persistence
+The file `APP_PATCH.txt` contains the exact Sherlock-page code and the small import/payload changes needed in `app.py`.
 
-1. Log in with the real Supabase email and password.
-2. Save a small test trade.
-3. Sign out.
-4. Refresh.
-5. Sign in again.
-6. Verify the trade is still present.
+Run `supabase_v0_6_upgrade.sql` once in Supabase SQL Editor.
+
+## Important
+
+The analysis uses daily end-of-day market data. It reconstructs the general setup but cannot reproduce exact intraday indicator values.
