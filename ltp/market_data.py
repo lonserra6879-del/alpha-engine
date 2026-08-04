@@ -270,3 +270,15 @@ def score_case(snapshot: dict) -> tuple[int, str, list[str]]:
         verdict = "Weak or conflicting evidence"
 
     return score, verdict, evidence
+
+
+# Add these functions to the bottom of your existing ltp/market_data.py
+
+@st.cache_data(ttl=60, show_spinner=False)
+def quote_snapshot(tickers: tuple[str, ...]) -> dict[str, float | None]:
+    return {ticker: current_price(ticker) for ticker in tickers}
+
+def clear_quote_cache() -> None:
+    current_price.clear()
+    quote_snapshot.clear()
+
