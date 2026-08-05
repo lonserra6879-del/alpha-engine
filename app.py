@@ -22,6 +22,15 @@ from ltp.scanner import (
     clear_scan_cache,
 )
 from ltp.sherlock import snapshot_to_json
+from ltp.decision_plans import build_decision_plan
+from ltp.academy import STRATEGY_LIBRARY, academy_progress
+from ltp.academy_db import (
+    load_paper_trades,
+    insert_paper_trade,
+    close_paper_trade,
+    load_academy_progress,
+    mark_lesson_complete,
+)
 
 
 st.set_page_config(
@@ -96,6 +105,7 @@ with st.sidebar:
     pages = [
         "🔎 Morning Scanner",
         "🧪 Research Lab",
+        "🎓 Tommy Academy",
         "🏠 Command Center",
         "💼 Live Portfolio",
         "🕵️ Sherlock Cases",
@@ -331,10 +341,338 @@ elif page == "🧪 Research Lab":
             b.warning(f"**Caution:** {card['caution']}")
             b.info(f"**Why Sherlock watches it:** {card['why']}")
 
+
+st.subheader("Sherlock Decision Plan")
+try:
+    plan = build_decision_plan(ticker)
+except Exception as exc:
+    st.error(f"Decision plan could not be calculated: {exc}")
+    plan = None
+
+if plan:
+    a, b, c, d = st.columns(4)
+    a.metric("Current delayed price", f"${plan['price']:,.2f}")
+    b.metric("Entry Quality", f"{plan['entry_quality_score']}/100")
+    c.metric("Risk/Reward to Target 1", f"{plan['risk_reward_target1']:.2f}:1")
+    d.metric("Current status", plan["current_status"])
+
+    st.info(plan["timing_message"])
+
+    st.markdown("### Entry scenarios")
+    e1, e2, e3 = st.columns(3)
+    with e1:
+        st.markdown("#### Aggressive")
+        st.metric("Breakout trigger", f"${plan['aggressive_trigger']:,.2f}")
+        st.caption("Requires confirmation above resistance with strong participation. Higher chase risk.")
+    with e2:
+        st.markdown("#### Balanced ⭐")
+        st.metric(
+            "Preferred zone",
+            f"${plan['balanced_entry_low']:,.2f}–${plan['balanced_entry_high']:,.2f}",
+        )
+        st.caption("Designed to balance trend confirmation with estimated reward-to-risk.")
+    with e3:
+        st.markdown("#### Patient")
+        st.metric(
+            "Deeper support zone",
+            f"${plan['patient_entry_low']:,.2f}–${plan['patient_entry_high']:,.2f}",
+        )
+        st.caption("Wait for support plus bullish confirmation. Fewer opportunities, often better pricing.")
+
+    st.markdown("### Stop planning")
+    s1, s2, s3 = st.columns(3)
+    s1.metric("Tight stop area", f"${plan['tight_stop']:,.2f}")
+    s1.caption("Protects capital sooner but increases the chance of a normal-volatility exit.")
+    s2.metric("Balanced stop area ⭐", f"${plan['balanced_stop']:,.2f}")
+    s2.caption("Placed below estimated structural support.")
+    s3.metric("Wider stop area", f"${plan['wider_stop']:,.2f}")
+    s3.caption("Allows more volatility but increases dollars at risk.")
+
+    st.markdown("### Exit and profit-management zones")
+    x1, x2 = st.columns(2)
+    x1.metric("Target / resistance 1", f"${plan['target1']:,.2f}")
+    x1.caption(
+        "First resistance area. Consider whether partial profit-taking is appropriate "
+        "if momentum weakens here."
+    )
+    x2.metric("Target / resistance 2", f"${plan['target2']:,.2f}")
+    x2.caption(
+        "Higher resistance area. A healthy breakout may favor a trailing stop rather "
+        "than treating this as a mandatory full exit."
+    )
+
+    rr = plan["risk_reward_target1"]
+    rr_label = (
+        "Excellent" if rr >= 4
+        else "Very good" if rr >= 3
+        else "Good" if rr >= 2
+        else "Fair" if rr >= 1.5
+        else "Poor"
+    )
+    st.success(
+        f"Estimated risk/reward to the first resistance area: **{rr:.2f}:1 — {rr_label}**. "
+        "The estimate changes as price, support, resistance, and volatility change."
+    )
+    st.warning(
+        "These are educational planning zones generated from delayed daily data. "
+        "They are not guaranteed entry or exit prices and should not replace your own judgment."
+    )
+
     st.caption(
         "Indicator ranges are guides, not universal rules. Sherlock combines trend, momentum, "
         "volume, entry location, and risk/reward instead of relying on one indicator."
     )
+
+
+elif page == "🎓 Tommy Academy":
+    st.markdown(
+        '<div class="hero"><div class="eyebrow">Learn Like an Investor</div>'
+        '<div class="hero-title">Tommy Academy</div>'
+        '<p class="hero-copy">Real strategies, real historical cases, and a separate paper-trading laboratory.</p></div>',
+        unsafe_allow_html=True,
+    )
+
+    lessons_tab, strategies_tab, paper_tab, review_tab = st.tabs(
+        ["Learning Path", "Strategy Library", "Paper Trading Lab", "Trade Reviews"]
+    )
+
+    progress_df = load_academy_progress(user.user_id)
+    completed_keys = (
+        set(progress_df.loc[progress_df["completed"] == True, "lesson_key"].astype(str))
+        if not progress_df.empty and "completed" in progress_df.columns
+        else set()
+    )
+
+    paper_df = load_paper_trades(user.user_id)
+    closed_count = (
+        int((paper_df["status"].astype(str).str.lower() == "closed").sum())
+        if not paper_df.empty and "status" in paper_df.columns
+        else 0
+    )
+
+    progress = academy_progress(
+        completed_lessons=len(completed_keys),
+        reviewed_cases=len(completed_keys),
+        closed_paper_trades=closed_count,
+    )
+
+    a, b, c = st.columns(3)
+    a.metric("Academy rank", progress["rank"])
+    b.metric("Learning points", progress["score"])
+    c.metric("Completed paper trades", closed_count)
+
+    with lessons_tab:
+        st.subheader("Core learning path")
+        lesson_list = [
+            ("stocks_basics", "1. Stocks, price, and candlesticks", "Understand what ownership, price, and daily candles represent."),
+            ("trend_basics", "2. Trend and moving averages", "Learn EMA20, EMA50, EMA200, higher highs, and higher lows."),
+            ("momentum_basics", "3. Momentum and participation", "Learn RSI, MACD, volume, and relative volume."),
+            ("risk_basics", "4. Risk management", "Learn stops, position sizing, partial profits, and risk/reward."),
+            ("fundamentals_basics", "5. Company fundamentals", "Learn revenue, earnings, margins, debt, and industry comparisons."),
+            ("news_basics", "6. News and earnings risk", "Learn catalysts, guidance, earnings dates, and event risk."),
+        ]
+        for key, title, description in lesson_list:
+            with st.container(border=True):
+                st.markdown(f"### {title}")
+                st.write(description)
+                if key in completed_keys:
+                    st.success("Completed")
+                elif st.button("Mark lesson complete", key=f"lesson_{key}"):
+                    mark_lesson_complete(user.user_id, key)
+                    st.rerun()
+
+    with strategies_tab:
+        st.subheader("Strategy Library")
+        st.caption("Each strategy includes rules, warning signs, and a real historical case prompt.")
+        for strategy in STRATEGY_LIBRARY:
+            with st.expander(
+                f"{strategy['name']} · {strategy['difficulty']}",
+                expanded=strategy["name"] == "EMA20 Pullback",
+            ):
+                st.write(strategy["definition"])
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.success("**Best conditions**")
+                    for item in strategy["best_conditions"]:
+                        st.write(f"• {item}")
+                with c2:
+                    st.warning("**Avoid when**")
+                    for item in strategy["avoid_when"]:
+                        st.write(f"• {item}")
+
+                st.markdown("#### Checklist")
+                for item in strategy["checklist"]:
+                    st.checkbox(item, key=f"{strategy['name']}_{item}")
+
+                st.info(
+                    f"**Real historical case:** {strategy['case_ticker']} — "
+                    f"{strategy['case_period']}. Research the chart without assuming "
+                    "the later outcome, then explain whether the setup met the checklist."
+                )
+
+                lesson_key = "strategy_" + strategy["name"].lower().replace(" ", "_")
+                if lesson_key in completed_keys:
+                    st.success("Case reviewed")
+                elif st.button("Mark case reviewed", key=lesson_key):
+                    mark_lesson_complete(user.user_id, lesson_key)
+                    st.rerun()
+
+    with paper_tab:
+        st.subheader("Paper Trading Lab")
+        st.info(
+            "These are simulated trades only. They are completely separate from E*TRADE, "
+            "Robinhood, and any real brokerage account."
+        )
+
+        with st.form("paper_trade_form"):
+            c1, c2, c3 = st.columns(3)
+            paper_ticker = c1.text_input("Ticker").upper().strip()
+            paper_strategy = c2.selectbox(
+                "Strategy",
+                [item["name"] for item in STRATEGY_LIBRARY] + ["Other"],
+            )
+            entry_date = c3.date_input("Simulated entry date")
+
+            c1, c2, c3 = st.columns(3)
+            entry_price = c1.number_input("Simulated entry price", min_value=0.0, step=0.01)
+            quantity = c2.number_input("Shares", min_value=0.0, step=1.0)
+            stop_price = c3.number_input("Planned stop", min_value=0.0, step=0.01)
+
+            c1, c2 = st.columns(2)
+            target_price = c1.number_input("Planned target", min_value=0.0, step=0.01)
+            thesis = c2.text_area("Why does this match the strategy?")
+
+            submit_paper = st.form_submit_button(
+                "Open paper trade",
+                type="primary",
+                use_container_width=True,
+            )
+
+        if submit_paper:
+            if not paper_ticker or entry_price <= 0 or quantity <= 0:
+                st.error("Ticker, simulated price, and shares are required.")
+            else:
+                risk = entry_price - stop_price if stop_price > 0 else None
+                reward = target_price - entry_price if target_price > 0 else None
+                planned_rr = (
+                    reward / risk
+                    if risk is not None and reward is not None and risk > 0
+                    else None
+                )
+                insert_paper_trade(
+                    {
+                        "user_id": user.user_id,
+                        "ticker": paper_ticker,
+                        "strategy": paper_strategy,
+                        "thesis": thesis,
+                        "entry_date": entry_date.isoformat(),
+                        "entry_price": float(entry_price),
+                        "quantity": float(quantity),
+                        "stop_price": float(stop_price) if stop_price > 0 else None,
+                        "target_price": float(target_price) if target_price > 0 else None,
+                        "planned_risk_reward": planned_rr,
+                        "status": "Open",
+                    }
+                )
+                st.success("Paper trade opened.")
+                st.rerun()
+
+        paper_df = load_paper_trades(user.user_id)
+        open_paper = (
+            paper_df.loc[paper_df["status"].astype(str).str.lower() == "open"].copy()
+            if not paper_df.empty
+            else paper_df
+        )
+
+        st.subheader("Open paper positions")
+        if open_paper.empty:
+            st.info("No open paper positions.")
+        else:
+            for _, row in open_paper.iterrows():
+                with st.container(border=True):
+                    st.markdown(f"### {row['ticker']} · {row['strategy']}")
+                    st.caption(
+                        f"Entry ${float(row['entry_price']):,.2f} · "
+                        f"Shares {float(row['quantity']):g}"
+                    )
+                    if pd.notna(row.get("planned_risk_reward")):
+                        st.write(f"Planned risk/reward: **{float(row['planned_risk_reward']):.2f}:1**")
+
+                    with st.form(f"close_paper_{row['id']}"):
+                        c1, c2 = st.columns(2)
+                        exit_date = c1.date_input("Simulated exit date", key=f"pd_{row['id']}")
+                        exit_price = c2.number_input(
+                            "Simulated exit price",
+                            min_value=0.01,
+                            value=float(row["entry_price"]),
+                            key=f"pp_{row['id']}",
+                        )
+                        close_reason = st.selectbox(
+                            "Reason for exit",
+                            [
+                                "Target reached",
+                                "Stop reached",
+                                "Trend weakened",
+                                "Risk/reward changed",
+                                "Earnings risk",
+                                "Manual decision",
+                            ],
+                            key=f"pr_{row['id']}",
+                        )
+                        lesson = st.text_area("What did you learn?", key=f"pl_{row['id']}")
+                        close_submit = st.form_submit_button("Close paper trade")
+
+                    if close_submit:
+                        close_paper_trade(
+                            str(row["id"]),
+                            user.user_id,
+                            {
+                                "status": "Closed",
+                                "exit_date": exit_date.isoformat(),
+                                "exit_price": float(exit_price),
+                                "close_reason": close_reason,
+                                "lesson": lesson,
+                            },
+                        )
+                        st.rerun()
+
+    with review_tab:
+        st.subheader("Paper Trade Reviews")
+        paper_df = load_paper_trades(user.user_id)
+        closed = (
+            paper_df.loc[paper_df["status"].astype(str).str.lower() == "closed"].copy()
+            if not paper_df.empty
+            else paper_df
+        )
+        if closed.empty:
+            st.info("Close a paper trade to create a review.")
+        else:
+            for _, row in closed.iterrows():
+                pnl = (
+                    (float(row["exit_price"]) - float(row["entry_price"]))
+                    * float(row["quantity"])
+                )
+                return_pct = float(row["exit_price"]) / float(row["entry_price"]) - 1
+                with st.container(border=True):
+                    st.markdown(f"### {row['ticker']} · {row['strategy']}")
+                    c1, c2, c3 = st.columns(3)
+                    c1.metric("Simulated P&L", f"${pnl:,.2f}")
+                    c2.metric("Return", f"{return_pct:+.2%}")
+                    c3.metric(
+                        "Planned R/R",
+                        "—"
+                        if pd.isna(row.get("planned_risk_reward"))
+                        else f"{float(row['planned_risk_reward']):.2f}:1",
+                    )
+                    st.write(f"**Exit reason:** {row.get('close_reason') or 'Not recorded'}")
+                    if row.get("lesson"):
+                        st.success(f"Lesson: {row['lesson']}")
+                    st.info(
+                        "Sherlock review: compare the original thesis, planned stop, "
+                        "planned target, and actual exit. A good process can still produce "
+                        "a loss, and a poor process can occasionally produce a gain."
+                    )
+
 
 
 elif page == "🏠 Command Center":
@@ -513,7 +851,7 @@ elif page == "🔒 Privacy & Sharing":
 
 
 elif page == "✨ What's New":
-    st.title("v1.1 — Sherlock Awakens")
+    st.title("v1.2 — Decision Plans & Tommy Academy")
     st.markdown(
         """
         - Morning Scanner is now the first page after login
@@ -527,6 +865,12 @@ elif page == "✨ What's New":
         - Research Lab with candlesticks, EMA 9/20/50/200, volume, RSI, and MACD
         - Indicator cards show the actual number, status, what good looks like, and warning conditions
         - No real trade execution controls
+- Aggressive, balanced, and patient entry scenarios
+- Tight, balanced, and wider stop areas
+- Two resistance and profit-management zones
+- Tommy Academy learning path
+- Real historical strategy case prompts
+- Separate paper-trading lab and reviews
         """
     )
 

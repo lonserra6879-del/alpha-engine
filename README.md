@@ -1,33 +1,38 @@
-# LTP v1.1 — Sherlock Awakens
+# LTP v1.2 — Decision Plans & Tommy Academy
 
-Release 1 makes the Morning Scanner the first page after login.
+## New Decision Plans
 
-## New
+Research Lab now includes:
 
-- Curated AI and technology scanner
-- Evidence Score and Opportunity Score
-- Relative-volume and high-movement ranking
-- Setup classifications
-- Balanced entry planning zones
+- Entry Quality Score
+- Aggressive breakout trigger
+- Balanced entry zone
+- Patient/deeper-support entry zone
 - Tight, balanced, and wider stop areas
-- Potential resistance/target areas
-- Risk/reward grading
-- Research Lab with candlesticks and the core indicators
-- Educational legends showing the actual value and what good/caution generally mean
-- No order placement, modification, or cancellation controls
+- First and second resistance/profit-management areas
+- Risk/reward rating with a plain-language legend
+- Clear status showing whether current price is in, near, above, or below the preferred zone
 
-## Install
+These are educational planning levels from delayed daily data, not guarantees or brokerage instructions.
 
-Replace the files in GitHub with the complete contents of this package.
+## Tommy Academy
 
-Keep your real Supabase credentials only in Streamlit Cloud Secrets.
+- Learning path from market basics through news and fundamentals
+- Strategy library explaining what each strategy is
+- Best conditions and warning signs
+- Checklists
+- Real historical case prompts
+- Separate paper-trading lab
+- Open simulated positions
+- Simulated trade closing and lessons
+- Paper-trade review cards
+- Academy progress and ranks
 
-No database upgrade is required for this release.
+## Installation
 
-## Scanner reliability
+1. Replace the repository files with this complete package.
+2. In Supabase, run `database_upgrade_v1_2.sql` once.
+3. Reboot Streamlit.
+4. Confirm Research Lab and Tommy Academy appear.
 
-The included universe is intentionally curated rather than every listed stock. Free Yahoo Finance requests may occasionally fail or throttle. Results cache for 30 minutes, and the scan downloads symbols in batches.
-
-## Important
-
-Planning zones are educational estimates from delayed daily data. They are not execution quotes, predictions, or personalized investment instructions.
+LTP remains read-only for real brokerage accounts.
