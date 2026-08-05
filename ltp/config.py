@@ -6,3 +6,6 @@ STRATEGIES = [
     "Friday Reversal", "Earnings Momentum",
     "Imported Existing Position", "Other"
 ]
+
+RELEASE_NAME = "Sherlock Awakens"
+RELEASE_VERSION = "1.1"
