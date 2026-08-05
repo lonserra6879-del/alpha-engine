@@ -342,87 +342,86 @@ elif page == "🧪 Research Lab":
             b.info(f"**Why Sherlock watches it:** {card['why']}")
 
 
-st.subheader("Sherlock Decision Plan")
-try:
-    plan = build_decision_plan(ticker)
-except Exception as exc:
-    st.error(f"Decision plan could not be calculated: {exc}")
-    plan = None
+    st.subheader("Sherlock Decision Plan")
+    try:
+        plan = build_decision_plan(ticker)
+    except Exception as exc:
+        st.error(f"Decision plan could not be calculated: {exc}")
+        plan = None
 
-if plan:
-    a, b, c, d = st.columns(4)
-    a.metric("Current delayed price", f"${plan['price']:,.2f}")
-    b.metric("Entry Quality", f"{plan['entry_quality_score']}/100")
-    c.metric("Risk/Reward to Target 1", f"{plan['risk_reward_target1']:.2f}:1")
-    d.metric("Current status", plan["current_status"])
+    if plan:
+        a, b, c, d = st.columns(4)
+        a.metric("Current delayed price", f"${plan['price']:,.2f}")
+        b.metric("Entry Quality", f"{plan['entry_quality_score']}/100")
+        c.metric("Risk/Reward to Target 1", f"{plan['risk_reward_target1']:.2f}:1")
+        d.metric("Current status", plan["current_status"])
 
-    st.info(plan["timing_message"])
+        st.info(plan["timing_message"])
 
-    st.markdown("### Entry scenarios")
-    e1, e2, e3 = st.columns(3)
-    with e1:
-        st.markdown("#### Aggressive")
-        st.metric("Breakout trigger", f"${plan['aggressive_trigger']:,.2f}")
-        st.caption("Requires confirmation above resistance with strong participation. Higher chase risk.")
-    with e2:
-        st.markdown("#### Balanced ⭐")
-        st.metric(
-            "Preferred zone",
-            f"${plan['balanced_entry_low']:,.2f}–${plan['balanced_entry_high']:,.2f}",
+        st.markdown("### Entry scenarios")
+        e1, e2, e3 = st.columns(3)
+        with e1:
+            st.markdown("#### Aggressive")
+            st.metric("Breakout trigger", f"${plan['aggressive_trigger']:,.2f}")
+            st.caption("Requires confirmation above resistance with strong participation. Higher chase risk.")
+        with e2:
+            st.markdown("#### Balanced ⭐")
+            st.metric(
+                "Preferred zone",
+                f"${plan['balanced_entry_low']:,.2f}–${plan['balanced_entry_high']:,.2f}",
+            )
+            st.caption("Designed to balance trend confirmation with estimated reward-to-risk.")
+        with e3:
+            st.markdown("#### Patient")
+            st.metric(
+                "Deeper support zone",
+                f"${plan['patient_entry_low']:,.2f}–${plan['patient_entry_high']:,.2f}",
+            )
+            st.caption("Wait for support plus bullish confirmation. Fewer opportunities, often better pricing.")
+
+        st.markdown("### Stop planning")
+        s1, s2, s3 = st.columns(3)
+        s1.metric("Tight stop area", f"${plan['tight_stop']:,.2f}")
+        s1.caption("Protects capital sooner but increases the chance of a normal-volatility exit.")
+        s2.metric("Balanced stop area ⭐", f"${plan['balanced_stop']:,.2f}")
+        s2.caption("Placed below estimated structural support.")
+        s3.metric("Wider stop area", f"${plan['wider_stop']:,.2f}")
+        s3.caption("Allows more volatility but increases dollars at risk.")
+
+        st.markdown("### Exit and profit-management zones")
+        x1, x2 = st.columns(2)
+        x1.metric("Target / resistance 1", f"${plan['target1']:,.2f}")
+        x1.caption(
+            "First resistance area. Consider whether partial profit-taking is appropriate "
+            "if momentum weakens here."
         )
-        st.caption("Designed to balance trend confirmation with estimated reward-to-risk.")
-    with e3:
-        st.markdown("#### Patient")
-        st.metric(
-            "Deeper support zone",
-            f"${plan['patient_entry_low']:,.2f}–${plan['patient_entry_high']:,.2f}",
+        x2.metric("Target / resistance 2", f"${plan['target2']:,.2f}")
+        x2.caption(
+            "Higher resistance area. A healthy breakout may favor a trailing stop rather "
+            "than treating this as a mandatory full exit."
         )
-        st.caption("Wait for support plus bullish confirmation. Fewer opportunities, often better pricing.")
 
-    st.markdown("### Stop planning")
-    s1, s2, s3 = st.columns(3)
-    s1.metric("Tight stop area", f"${plan['tight_stop']:,.2f}")
-    s1.caption("Protects capital sooner but increases the chance of a normal-volatility exit.")
-    s2.metric("Balanced stop area ⭐", f"${plan['balanced_stop']:,.2f}")
-    s2.caption("Placed below estimated structural support.")
-    s3.metric("Wider stop area", f"${plan['wider_stop']:,.2f}")
-    s3.caption("Allows more volatility but increases dollars at risk.")
+        rr = plan["risk_reward_target1"]
+        rr_label = (
+            "Excellent" if rr >= 4
+            else "Very good" if rr >= 3
+            else "Good" if rr >= 2
+            else "Fair" if rr >= 1.5
+            else "Poor"
+        )
+        st.success(
+            f"Estimated risk/reward to the first resistance area: **{rr:.2f}:1 — {rr_label}**. "
+            "The estimate changes as price, support, resistance, and volatility change."
+        )
+        st.warning(
+            "These are educational planning zones generated from delayed daily data. "
+            "They are not guaranteed entry or exit prices and should not replace your own judgment."
+        )
 
-    st.markdown("### Exit and profit-management zones")
-    x1, x2 = st.columns(2)
-    x1.metric("Target / resistance 1", f"${plan['target1']:,.2f}")
-    x1.caption(
-        "First resistance area. Consider whether partial profit-taking is appropriate "
-        "if momentum weakens here."
-    )
-    x2.metric("Target / resistance 2", f"${plan['target2']:,.2f}")
-    x2.caption(
-        "Higher resistance area. A healthy breakout may favor a trailing stop rather "
-        "than treating this as a mandatory full exit."
-    )
-
-    rr = plan["risk_reward_target1"]
-    rr_label = (
-        "Excellent" if rr >= 4
-        else "Very good" if rr >= 3
-        else "Good" if rr >= 2
-        else "Fair" if rr >= 1.5
-        else "Poor"
-    )
-    st.success(
-        f"Estimated risk/reward to the first resistance area: **{rr:.2f}:1 — {rr_label}**. "
-        "The estimate changes as price, support, resistance, and volatility change."
-    )
-    st.warning(
-        "These are educational planning zones generated from delayed daily data. "
-        "They are not guaranteed entry or exit prices and should not replace your own judgment."
-    )
-
-    st.caption(
-        "Indicator ranges are guides, not universal rules. Sherlock combines trend, momentum, "
-        "volume, entry location, and risk/reward instead of relying on one indicator."
-    )
-
+        st.caption(
+            "Indicator ranges are guides, not universal rules. Sherlock combines trend, momentum, "
+            "volume, entry location, and risk/reward instead of relying on one indicator."
+        )
 
 elif page == "🎓 Tommy Academy":
     st.markdown(
