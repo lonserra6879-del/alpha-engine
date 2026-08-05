@@ -421,3 +421,6 @@ def run_morning_scan(
 
 def clear_scan_cache() -> None:
     run_morning_scan.clear()
+
+
+from ltp.decision_plans import build_decision_plan
